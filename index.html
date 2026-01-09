@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rule-Based Sepsis Screening Software (qSOFA)</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-dot"></div>
+        <div class="logo-text">
+          <span class="logo-title">Sepsis Screen</span>
+          <span class="logo-subtitle">qSOFA-based Screening Tool</span>
+        </div>
+      </div>
+      <nav class="nav">
+        <button class="nav-link active" data-target="home-section">Home</button>
+        <button class="nav-link" data-target="dashboard-section">Dashboard</button>
+        <button class="nav-link" data-target="how-section">How It Works</button>
+        <button class="nav-link" data-target="disclaimer-section">Disclaimer</button>
+      </nav>
+    </header>
+
+    <main class="main-layout">
+      <!-- Home / Input -->
+      <section id="home-section" class="page-section visible">
+        <div class="section-header">
+          <h1>Rule-Based Sepsis Screening (qSOFA)</h1>
+          <p class="section-tagline">
+            Designed as a transparent clinical decision-support screening tool for non-ICU
+            environments. This software does not provide medical diagnosis or treatment
+            recommendations.
+          </p>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h2>Patient Screening Input</h2>
+            <form id="reading-form" class="form">
+              <div class="form-row">
+                <label for="patientId">Patient identifier</label>
+                <input
+                  type="text"
+                  id="patientId"
+                  name="patientId"
+                  required
+                  placeholder="e.g. Ward-12 / Bed-03"
+                />
+              </div>
+              <div class="form-row two-col">
+                <div>
+                  <label for="patientName">Patient label (optional)</label>
+                  <input
+                    type="text"
+                    id="patientName"
+                    name="patientName"
+                    placeholder="e.g. Adult, 65 y"
+                  />
+                </div>
+                <div>
+                  <label for="patientLocation">Location (optional)</label>
+                  <input
+                    type="text"
+                    id="patientLocation"
+                    name="patientLocation"
+                    placeholder="e.g. Medical ward"
+                  />
+                </div>
+              </div>
+
+              <div class="form-row two-col">
+                <div>
+                  <label for="respiratoryRate">Respiratory rate (breaths/min)</label>
+                  <input
+                    type="number"
+                    id="respiratoryRate"
+                    name="respiratoryRate"
+                    min="0"
+                    required
+                  />
+                </div>
+                <div>
+                  <label for="systolicBP">Systolic blood pressure (mmHg)</label>
+                  <input
+                    type="number"
+                    id="systolicBP"
+                    name="systolicBP"
+                    min="0"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div class="form-row">
+                <label for="mentalStatus">Mental status</label>
+                <select id="mentalStatus" name="mentalStatus" required>
+                  <option value="">Select...</option>
+                  <option value="Alert">Alert</option>
+                  <option value="Drowsy">Drowsy</option>
+                  <option value="Agitated">Agitated</option>
+                  <option value="Unresponsive">Unresponsive</option>
+                </select>
+              </div>
+
+              <div class="form-row">
+                <label for="timestamp">Observation time</label>
+                <input type="datetime-local" id="timestamp" name="timestamp" required />
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn-primary">Record reading</button>
+                <span id="form-status" class="form-status" aria-live="polite"></span>
+              </div>
+
+              <p class="helper-text">
+                Multiple readings can be entered over time for the same patient identifier to track
+                trends and generate explainable screening alerts.
+              </p>
+            </form>
+          </div>
+
+          <div class="card">
+            <h2>Latest qSOFA Screening Summary</h2>
+            <div id="summary-empty" class="summary-empty">
+              Enter at least one set of vitals for a patient to view a qSOFA-based screening
+              summary.
+            </div>
+            <div id="summary-content" class="summary-content hidden">
+              <div class="summary-line">
+                <span>Patient identifier</span>
+                <span id="summary-patientId" class="summary-value"></span>
+              </div>
+              <div class="summary-line">
+                <span>Latest qSOFA screening score</span>
+                <span id="summary-qsofa" class="summary-value badge"></span>
+              </div>
+              <div class="summary-line">
+                <span>Screening interpretation</span>
+                <span id="summary-riskLabel" class="summary-value"></span>
+              </div>
+              <div class="summary-line">
+                <span>Total readings stored</span>
+                <span id="summary-count" class="summary-value"></span>
+              </div>
+              <div>
+                <h3 class="subheading">Latest contributing factors</h3>
+                <ul id="summary-reasons" class="reason-list"></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Dashboard -->
+      <section id="dashboard-section" class="page-section">
+        <div class="section-header">
+          <h1>Visual Vital Trends & Alerts</h1>
+          <p class="section-tagline">
+            Line charts display changes in respiratory rate, blood pressure, and qSOFA screening
+            scores over time for a selected patient identifier.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <label for="dashboard-patientId">Patient identifier</label>
+              <input
+                type="text"
+                id="dashboard-patientId"
+                placeholder="Enter existing patient identifier"
+              />
+            </div>
+            <button id="load-dashboard" class="btn-primary">Load trends</button>
+            <span id="dashboard-status" class="form-status" aria-live="polite"></span>
+          </div>
+
+          <div class="chart-container">
+            <canvas id="vitals-chart"></canvas>
+          </div>
+
+          <div class="legend-note">
+            <span class="dot dot-blue"></span> Respiratory rate
+            <span class="dot dot-green"></span> Systolic blood pressure
+            <span class="dot dot-red"></span> qSOFA screening score
+          </div>
+        </div>
+
+        <div class="grid-2 stacked-on-mobile">
+          <div class="card">
+            <h2>Explainable Alerts</h2>
+            <p class="helper-text">
+              Alerts summarize how rule-based criteria are evolving over time. Each alert includes
+              a human-readable explanation for clinicians and evaluators.
+            </p>
+            <div id="alerts-list" class="alerts-list"></div>
+          </div>
+
+          <div class="card">
+            <h2>Scenario Simulation</h2>
+            <p class="helper-text">
+              Use the built-in simulated case to see how a gradual escalation in respiratory rate,
+              blood pressure changes, and mental status can drive qSOFA screening alerts.
+            </p>
+            <button id="run-scenario" class="btn-secondary">Run demo scenario</button>
+            <div class="chart-container small">
+              <canvas id="scenario-chart"></canvas>
+            </div>
+            <div id="scenario-details" class="scenario-details"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- How It Works -->
+      <section id="how-section" class="page-section">
+        <div class="section-header">
+          <h1>How the Screening Logic Works</h1>
+        </div>
+
+        <div class="card">
+          <h2>qSOFA-Based Screening (Rule Engine)</h2>
+          <p>
+            This prototype uses the quick Sequential Organ Failure Assessment (qSOFA) parameters as
+            a structured ruleset for sepsis risk <strong>screening</strong> in non-ICU settings.
+          </p>
+          <div class="grid-3">
+            <div class="rule-card">
+              <h3>Respiratory rate</h3>
+              <p>1 point if respiratory rate is at or above 22 breaths per minute.</p>
+            </div>
+            <div class="rule-card">
+              <h3>Systolic blood pressure</h3>
+              <p>1 point if systolic blood pressure is at or below 100 mmHg.</p>
+            </div>
+            <div class="rule-card">
+              <h3>Mental status</h3>
+              <p>1 point if mental status is recorded as anything other than fully alert.</p>
+            </div>
+          </div>
+          <p>
+            The total qSOFA screening score ranges from 0 to 3. The application labels scores as
+            “Low”, “Intermediate”, or “High” screening scores and surfaces the specific rule
+            contributions behind each change.
+          </p>
+        </div>
+
+        <div class="grid-2 stacked-on-mobile">
+          <div class="card">
+            <h2>Transparency for Clinicians</h2>
+            <ul class="bullet-list">
+              <li>Each reading is evaluated with transparent rule logic.</li>
+              <li>Every alert includes the rule-based reasoning that triggered it.</li>
+              <li>
+                Time-series trends help non-ICU staff see whether risk markers are stable or
+                escalating.
+              </li>
+            </ul>
+          </div>
+          <div class="card">
+            <h2>Intended Use</h2>
+            <ul class="bullet-list">
+              <li>Support time-critical bedside awareness in wards and ED settings.</li>
+              <li>
+                Provide a structured lens on vital signs; ultimate clinical decisions remain with
+                the responsible team.
+              </li>
+              <li>
+                Built for hackathon evaluation to demonstrate explainable, rule-based clinical
+                reasoning in software form.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Disclaimer -->
+      <section id="disclaimer-section" class="page-section">
+        <div class="card emphasis">
+          <h1>Safety & Compliance Notice</h1>
+          <p class="disclaimer-text">
+            <strong>This software does not provide medical diagnosis or treatment recommendations.</strong>
+            It is a demonstration-only screening tool built for hackathon use. All outputs are
+            derived from simple rule-based logic using qSOFA parameters and are intended solely to
+            support clinical situational awareness.
+          </p>
+          <ul class="bullet-list">
+            <li>
+              Clinical teams must rely on full clinical assessment, local guidelines, and senior
+              judgement.
+            </li>
+            <li>
+              This prototype does not replace bedside evaluation, clinician expertise, or any
+              hospital early warning score system.
+            </li>
+            <li>
+              Data shown here may be simulated or anonymized for demonstration and education.
+            </li>
+          </ul>
+          <p class="disclaimer-text small">
+            Use of this demonstration in real clinical workflows would require institutional review,
+            validation, and appropriate governance.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span>Rule-Based Sepsis Screening Software · qSOFA-based screening demo</span>
+      <span class="footer-disclaimer">
+        This software does not provide medical diagnosis or treatment recommendations.
+      </span>
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+  </html>
+
